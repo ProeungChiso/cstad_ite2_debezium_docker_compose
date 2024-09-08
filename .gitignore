@@ -1,2 +1,2 @@
-*.sh # ignore all files with the .sh extension
-data/ # ignore all files in the data directory
+*.sh
+data/
