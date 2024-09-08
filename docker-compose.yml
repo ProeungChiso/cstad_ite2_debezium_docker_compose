@@ -45,7 +45,7 @@ services:
     environment:
       POSTGRES_USER: debezium
       POSTGRES_PASSWORD: dbz
-      POSTGRES_DB: inventory
+      POSTGRES_DB: kafka_postgres_db
     ports:
       - 5432:5432
     volumes:
