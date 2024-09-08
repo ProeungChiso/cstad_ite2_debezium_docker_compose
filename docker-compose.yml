@@ -1,0 +1,76 @@
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.6
+    container_name: zookeeper
+    hostname: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - 2181:2181
+    volumes:
+      - ./data/zookeeper:/var/lib/zookeeper/data  
+    networks:
+      - kafka-network  
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.6
+    container_name: kafka
+    hostname: kafka
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_EXTERNAL:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_EXTERNAL://[HOST_IP]:9094
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_EXTERNAL://0.0.0.0:9094
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_MESSAGE_MAX_BYTES: 20971520
+      KAFKA_REPLICA_FETCH_MAX_BYTES: 20971520
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 2
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 2
+    ports:
+      - 9092:9092  # Internal communication
+      - 9094:9094  # External communication
+    depends_on:
+      - zookeeper
+    volumes:
+      - ./data/kafka:/var/lib/kafka/data  
+    networks:
+      - kafka-network  
+
+  postgres:
+    image: postgres:latest
+    container_name: postgres
+    hostname: postgres
+    environment:
+      POSTGRES_USER: debezium
+      POSTGRES_PASSWORD: dbz
+      POSTGRES_DB: inventory
+    ports:
+      - 5432:5432
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    networks:
+      - kafka-network  
+
+  debezium:
+    image: debezium/connect:2.4
+    container_name: debezium
+    hostname: debezium
+    environment:
+      - BOOTSTRAP_SERVERS=kafka:9092
+      - GROUP_ID=1
+      - CONFIG_STORAGE_TOPIC=my_connect_configs
+      - OFFSET_STORAGE_TOPIC=my_connect_offsets
+      - STATUS_STORAGE_TOPIC=my_connect_statuses
+    ports:
+      - 8083:8083
+    depends_on:
+      - kafka
+      - postgres
+    networks:
+      - kafka-network
+      
+networks:
+  kafka-network:
+    driver: bridge      
