@@ -4,12 +4,13 @@ services:
     hostname: zookeeper
     container_name: zookeeper
     ports:
-      - '2181:2181'
+      - '2182:2181'
     environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_CLIENT_PORT: 2182
       ZOOKEEPER_TICK_TIME: 2000
+      ALLOW_ANONYMOUS_LOGIN: yes  
     healthcheck:
-      test: echo srvr | nc zookeeper 2181 || exit 1
+      test: echo srvr | nc zookeeper 2182 || exit 1
       start_period: 10s
       retries: 20
       interval: 10s
@@ -22,13 +23,13 @@ services:
         condition: service_healthy
     ports:
       - '29092:29092'
-      - '9092:9092'
+      - '9168:9092'
       - '9101:9101'
     environment:
       KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2182'
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:29092,PLAINTEXT_HOST://68.183.187.158:9168
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
@@ -36,8 +37,12 @@ services:
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
       KAFKA_JMX_PORT: 9101
       KAFKA_JMX_HOSTNAME: localhost
+      KAFKA_CONFLUENT_SUPPORT_METRICS_ENABLE: "false"
+      KAFKA_MESSAGE_MAX_BYTES: 2000000000
+      KAFKA_REPLICA_FETCH_MAX_BYTES: 2000000000
+      KAFKA_REPLICA_MAX_LOG_SIZE: 2000000000  
     healthcheck:
-      test: nc -z localhost 9092 || exit -1
+      test: nc -z broker 29092 || exit -1
       start_period: 15s
       interval: 5s
       timeout: 10s
@@ -53,7 +58,7 @@ services:
       broker:
         condition: service_healthy
     ports:
-      - '8083:8083'
+      - '8168:8083'
     environment:
       BOOTSTRAP_SERVERS: broker:29092
       GROUP_ID: 1
@@ -72,12 +77,12 @@ services:
           '--fail',
           '-X',
           'GET',
-          'http://localhost:8083/connectors',
+          'http://localhost:8168/connectors',
         ]
-      start_period: 10s
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      start_period: 30s
+      interval: 30s
+      timeout: 10s
+      retries: 10
 
   schema-registry:
     image: confluentinc/cp-schema-registry:7.3.1
@@ -87,11 +92,11 @@ services:
       broker:
         condition: service_healthy
     ports:
-      - '8081:8081'
+      - '8888:8081'
     environment:
       SCHEMA_REGISTRY_HOST_NAME: schema-registry
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: broker:29092
-      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8888
 
     healthcheck:
       start_period: 10s
@@ -124,7 +129,7 @@ services:
     ports:
       - '8080:8080'
     environment:
-      KAFKA_CONNECT_URIS: http://debezium:8083
+      KAFKA_CONNECT_URIS: http://debezium:8168
 
   postgres:
     image: postgres:latest
@@ -132,11 +137,11 @@ services:
     container_name: postgres
     hostname: postgres
     ports:
-      - '5432:5432'
+      - '5555:5432'
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: movies_db
+      POSTGRES_DB: user_db
     command: ['postgres', '-c', 'wal_level=logical']
     healthcheck:
       test: ['CMD', 'psql', '-U', 'postgres', '-c', 'SELECT 1']
