@@ -31,14 +31,15 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://<server-ip>:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
       KAFKA_JMX_PORT: 9101
-      KAFKA_JMX_HOSTNAME: localhost
+      KAFKA_JMX_HOSTNAME: <server-ip>
       KAFKA_CONFLUENT_SUPPORT_METRICS_ENABLE: "false"
       KAFKA_MESSAGE_MAX_BYTES: 2000000000
       KAFKA_REPLICA_FETCH_MAX_BYTES: 2000000000
@@ -63,7 +64,7 @@ services:
       broker:
         condition: service_healthy
     ports:
-      - '8084:8083'
+      - '8083:8083'
     environment:
       BOOTSTRAP_SERVERS: broker:9092
       GROUP_ID: 1
@@ -82,7 +83,7 @@ services:
           '--fail',
           '-X',
           'GET',
-          'http://localhost:8084/connectors',
+          'http://localhost:8083/connectors',
         ]
       start_period: 30s
       interval: 30s
@@ -99,11 +100,11 @@ services:
       broker:
         condition: service_healthy
     ports:
-      - '8888:8081'
+      - '8081:8081'
     environment:
       SCHEMA_REGISTRY_HOST_NAME: schema-registry
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: broker:9092
-      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8888
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
     healthcheck:
       start_period: 10s
       interval: 10s
@@ -139,7 +140,7 @@ services:
     ports:
       - '8080:8080'
     environment:
-      KAFKA_CONNECT_URIS: http://debezium:8084
+      KAFKA_CONNECT_URIS: http://debezium:8083
     networks:
       - kafka-network
 
@@ -149,7 +150,7 @@ services:
     container_name: postgres
     hostname: postgres
     ports:
-      - '5555:5432'
+      - '5432:5432'
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
