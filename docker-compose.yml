@@ -4,16 +4,20 @@ services:
     hostname: zookeeper
     container_name: zookeeper
     ports:
-      - '2182:2181'
+      - '2181:2181'
     environment:
-      ZOOKEEPER_CLIENT_PORT: 2182
+      ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
       ALLOW_ANONYMOUS_LOGIN: yes  
     healthcheck:
-      test: echo srvr | nc zookeeper 2182 || exit 1
-      start_period: 10s
-      retries: 20
+      test: nc -z localhost 2181 || exit -1
       interval: 10s
+      retries: 3
+      start_period: 10s
+      timeout: 5s
+    networks:
+      - kafka-network
+
   broker:
     image: confluentinc/cp-kafka:7.3.1
     hostname: broker
@@ -23,13 +27,12 @@ services:
         condition: service_healthy
     ports:
       - '29092:29092'
-      - '9168:9092'
+      - '9092:9092'
       - '9101:9101'
     environment:
       KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2182'
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:29092,PLAINTEXT_HOST://68.183.187.158:9168
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:29092,PLAINTEXT://68.183.187.158:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
@@ -42,11 +45,14 @@ services:
       KAFKA_REPLICA_FETCH_MAX_BYTES: 2000000000
       KAFKA_REPLICA_MAX_LOG_SIZE: 2000000000  
     healthcheck:
-      test: nc -z broker 29092 || exit -1
-      start_period: 15s
-      interval: 5s
-      timeout: 10s
-      retries: 10
+      test: ["CMD-SHELL", "nc -z localhost 9092"]
+      interval: 10s
+      retries: 3
+      start_period: 30s
+      timeout: 5s
+    networks:
+      - kafka-network
+
   debezium:
     image: debezium/connect:latest
     restart: always
@@ -58,7 +64,7 @@ services:
       broker:
         condition: service_healthy
     ports:
-      - '8168:8083'
+      - '8084:8083'
     environment:
       BOOTSTRAP_SERVERS: broker:29092
       GROUP_ID: 1
@@ -77,12 +83,14 @@ services:
           '--fail',
           '-X',
           'GET',
-          'http://localhost:8168/connectors',
+          'http://localhost:8084/connectors',
         ]
       start_period: 30s
       interval: 30s
       timeout: 10s
       retries: 10
+    networks:
+      - kafka-network
 
   schema-registry:
     image: confluentinc/cp-schema-registry:7.3.1
@@ -97,12 +105,13 @@ services:
       SCHEMA_REGISTRY_HOST_NAME: schema-registry
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: broker:29092
       SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8888
-
     healthcheck:
       start_period: 10s
       interval: 10s
       retries: 20
       test: curl --user superUser:superUser --fail --silent --insecure http://localhost:8081/subjects --output /dev/null || exit 1
+    networks:
+      - kafka-network
 
   rest-proxy:
     image: confluentinc/cp-kafka-rest:7.3.1
@@ -117,6 +126,8 @@ services:
       KAFKA_REST_HOST_NAME: rest-proxy
       KAFKA_REST_BOOTSTRAP_SERVERS: 'broker:29092'
       KAFKA_REST_LISTENERS: 'http://0.0.0.0:8082'
+    networks:
+      - kafka-network
 
   debezium-ui:
     image: debezium/debezium-ui:latest
@@ -129,7 +140,9 @@ services:
     ports:
       - '8080:8080'
     environment:
-      KAFKA_CONNECT_URIS: http://debezium:8168
+      KAFKA_CONNECT_URIS: http://debezium:8084
+    networks:
+      - kafka-network
 
   postgres:
     image: postgres:latest
@@ -141,7 +154,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: user_db
+      POSTGRES_DB: movies_db
     command: ['postgres', '-c', 'wal_level=logical']
     healthcheck:
       test: ['CMD', 'psql', '-U', 'postgres', '-c', 'SELECT 1']
@@ -150,3 +163,13 @@ services:
       retries: 5
     volumes:
       - ./scripts:/docker-entrypoint-initdb.d
+    networks:
+      - kafka-network
+
+networks:
+  kafka-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+    driver: local
