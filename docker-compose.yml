@@ -26,13 +26,12 @@ services:
       zookeeper:
         condition: service_healthy
     ports:
-      - '29092:29092'
       - '9092:9092'
       - '9101:9101'
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:29092,PLAINTEXT://68.183.187.158:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
@@ -66,7 +65,7 @@ services:
     ports:
       - '8084:8083'
     environment:
-      BOOTSTRAP_SERVERS: broker:29092
+      BOOTSTRAP_SERVERS: broker:9092
       GROUP_ID: 1
       CONFIG_STORAGE_TOPIC: connect_configs
       STATUS_STORAGE_TOPIC: connect_statuses
@@ -103,7 +102,7 @@ services:
       - '8888:8081'
     environment:
       SCHEMA_REGISTRY_HOST_NAME: schema-registry
-      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: broker:29092
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: broker:9092
       SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8888
     healthcheck:
       start_period: 10s
@@ -124,7 +123,7 @@ services:
     container_name: rest-proxy
     environment:
       KAFKA_REST_HOST_NAME: rest-proxy
-      KAFKA_REST_BOOTSTRAP_SERVERS: 'broker:29092'
+      KAFKA_REST_BOOTSTRAP_SERVERS: 'broker:9092'
       KAFKA_REST_LISTENERS: 'http://0.0.0.0:8082'
     networks:
       - kafka-network
